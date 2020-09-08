@@ -39,6 +39,7 @@ from detectron2.evaluation import (
 )
 from detectron2.modeling import GeneralizedRCNNWithTTA
 
+from custom_augmentation import Cutout
 
 class Trainer(DefaultTrainer):
     """
@@ -115,6 +116,10 @@ class Trainer(DefaultTrainer):
         res = OrderedDict({k + "_TTA": v for k, v in res.items()})
         return res
 
+    @classmethod
+    def build_train_loader(cls, cfg):
+        mapper = DatasetMapper(cfg, is_train=True, augmentations=[Cutout()])
+        return build_detection_train_loader(cfg, mapper=mapper)
 
 def setup(args):
     """
