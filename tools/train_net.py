@@ -129,6 +129,7 @@ def setup(args):
 
 
 def main(args):
+    import custom
     cfg = setup(args)
 
     if args.eval_only:
