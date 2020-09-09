@@ -5,8 +5,8 @@ from fvcore.transforms.transform import (
     Transform,
 )
 
-from PIL import Image, ImageDraw
-from detectron2.augmentation import Augmentation
+from PIL import Image
+from detectron2.data.transforms.augmentation import Augmentation
 
 class CutoutTransform(Transform):
     def __init__(self, target_rects):
@@ -17,10 +17,11 @@ class CutoutTransform(Transform):
         super().__init__()
         self._set_attributes(locals())
 
-    def apply_image(self, img):
-        draw = ImageDraw.Draw(img)
+    def apply_image(self, _img):
+        img = _img.copy()
         for rect in self.target_rects:
-            draw.rectangle(rect, fill=(0,0,0))
+            x0, y0, x1, y1 = rect
+            img[y0:y1, x0:x1] = 0
         return img
 
     def apply_coords(self, coords):
@@ -54,7 +55,7 @@ class Cutout(Augmentation):
         do = self._rand_range() < self.prob
         if do:
             num = np.random.randint(0, self.num+1)
-            length = int(size_pct * min(h, w))
+            length = int(self.size_pct * min(h, w))
             rects = []
             for _ in range(num):
                 x0 = np.random.randint(0, w)

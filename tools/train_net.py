@@ -24,7 +24,7 @@ import torch
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
-from detectron2.data import MetadataCatalog
+from detectron2.data import MetadataCatalog, DatasetMapper, build_detection_train_loader
 from detectron2.engine import DefaultTrainer, default_argument_parser, default_setup, hooks, launch
 from detectron2.evaluation import (
     CityscapesInstanceEvaluator,
@@ -38,6 +38,7 @@ from detectron2.evaluation import (
     verify_results,
 )
 from detectron2.modeling import GeneralizedRCNNWithTTA
+import detectron2.data.detection_utils as utils
 
 from custom_augmentation import Cutout
 
@@ -118,7 +119,10 @@ class Trainer(DefaultTrainer):
 
     @classmethod
     def build_train_loader(cls, cfg):
-        mapper = DatasetMapper(cfg, is_train=True, augmentations=[Cutout()])
+        augs = utils.build_augmentation(cfg, True)
+        if cfg.INPUT.CROP.ENABLED:
+            augs.insert(0, T.RandomCrop(cfg.INPUT.CROP.TYPE, cfg.INPUT.CROP.SIZE))
+        mapper = DatasetMapper(cfg, is_train=True, augmentations=augs + [Cutout()])
         return build_detection_train_loader(cfg, mapper=mapper)
 
 def setup(args):

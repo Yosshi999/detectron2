@@ -13,6 +13,7 @@ from detectron2.data.build import filter_images_with_few_keypoints
 from detectron2.utils.logger import setup_logger
 from detectron2.utils.visualizer import Visualizer
 
+from train_net import Trainer
 
 def setup(args):
     cfg = get_cfg()
@@ -68,7 +69,8 @@ if __name__ == "__main__":
     out_n = 0
     scale = 2.0 if args.show else 1.0
     if args.source == "dataloader":
-        train_data_loader = build_detection_train_loader(cfg)
+        #train_data_loader = build_detection_train_loader(cfg)
+        train_data_loader = Trainer.build_train_loader(cfg)
         for batch in train_data_loader:
             for per_image in batch:
                 # Pytorch tensor is in (C, H, W) format
