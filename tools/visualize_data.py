@@ -34,6 +34,7 @@ def parse_args(in_args=None):
     parser.add_argument("--config-file", metavar="FILE", help="path to config file")
     parser.add_argument("--output-dir", default="./", help="path to output directory")
     parser.add_argument("--show", action="store_true", help="show output in a window")
+    parser.add_argument("--limit", type=int, default=10, help="limit of the number of outputs")
     parser.add_argument(
         "opts",
         help="Modify config options using the command-line",
@@ -44,6 +45,7 @@ def parse_args(in_args=None):
 
 
 if __name__ == "__main__":
+    import custom
     args = parse_args()
     logger = setup_logger()
     logger.info("Arguments: " + str(args))
@@ -63,6 +65,7 @@ if __name__ == "__main__":
             print("Saving to {} ...".format(filepath))
             vis.save(filepath)
 
+    out_n = 0
     scale = 2.0 if args.show else 1.0
     if args.source == "dataloader":
         train_data_loader = build_detection_train_loader(cfg)
@@ -82,6 +85,9 @@ if __name__ == "__main__":
                     keypoints=target_fields.get("gt_keypoints", None),
                 )
                 output(vis, str(per_image["image_id"]) + ".jpg")
+                out_n += 1
+                if out_n >= args.limit:
+                    exit(0)
     else:
         dicts = list(chain.from_iterable([DatasetCatalog.get(k) for k in cfg.DATASETS.TRAIN]))
         if cfg.MODEL.KEYPOINT_ON:
@@ -91,3 +97,6 @@ if __name__ == "__main__":
             visualizer = Visualizer(img, metadata=metadata, scale=scale)
             vis = visualizer.draw_dataset_dict(dic)
             output(vis, os.path.basename(dic["file_name"]))
+            out_n += 1
+            if out_n >= args.limit:
+                exit(0)
