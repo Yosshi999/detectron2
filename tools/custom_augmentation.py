@@ -29,13 +29,44 @@ class CutoutTransform(Transform):
 
     def apply_segmentation(self, segmentation):
         return segmentation
+    
+    def apply_box(self, boxes):
+        #print("box:", boxes)
+        result = []
+        for box in boxes:
+            bx0, by0, bx1, by1 = box
+            r = box
+            for x0, y0, x1, y1 in self.target_rects:
+                if x0 <= bx0 and bx1 <= x1:
+                    if y0 <= by0 and by1 <= y1:
+                        r = [bx0, by0, bx0, by0]
+                        break
+                    elif y0 <= by0 and by0 <= y1:
+                        r = [bx0, y1, bx1, by1]
+                        break
+                    elif y0 <= by1 and by1 <= y1:
+                        r = [bx0, by0, bx1, y0]
+                        break
+                elif y0 <= by0 and by1 <= y1:
+                    if x0 <= bx0 and bx0 <= x1:
+                        r = [x1, by0, bx1, by1]
+                        break
+                    elif x0 <= bx1 and bx1 <= x1:
+                        r = [bx0, by0, x0, by1]
+                        break
+            # 90% removal -> remove box
+            if (bx1-bx0)*(by1-by0)*0.1 > (r[2]-r[0])*(r[3]-r[1]):
+                r = [bx0, by0, bx0, by0]
+            result.append(r)
+        #print("after:", np.array(result))
+        return np.array(result)
 
 class Cutout(Augmentation):
     """
     Cutout.
     """
 
-    def __init__(self, prob=0.5, *, size_pct=(0.02, 0.2), aspect=(0.33, 3), num=1):
+    def __init__(self, prob=0.5, *, size_pct=(0.02, 0.05), aspect=(0.33, 3), num=(5, 10)):
         """
         Args:
             prob (float): probability between 0.0 and 1.0 that
@@ -85,21 +116,51 @@ class ObjectAwareCutout(Augmentation):
     """
     Region aware cutout.
     """
-    def __init__(self, prob=0.5, *, size_pct=0.1, num=5):
+    def __init__(self, prob=0.5, *, size_pct=(0.02, 0.2), aspect=(0.33, 3), num=1):
         """
         Args:
             prob (float): probability between 0.0 and 1.0 that
                 the wrapper transformation is applied
-            size_pct (float): the length ratio of shorter box of cutouts.
-            num (int): the maximum number of boxes
+            size_pct (float or tuple[float]): the area ratio of boxes w.r.t image..
+            aspect (float or tuple[float]): aspect ratio of boxes. height/width
+            num (int or tuple[int]): the maximum number of boxes
         """
         super().__init__()
         assert 0.0 <= prob <= 1.0, f"Probablity must be between 0.0 and 1.0 (given: {prob})"
-        assert 0.0 <= size_pct <= 1.0, f"Pct must be between 0.0 and 1.0 (given: {size_pct})"
+        if type(size_pct) is tuple:
+            assert 0.0 <= size_pct[0] <= 1.0, f"Pct must be between 0.0 and 1.0 (given: {size_pct})"
+            assert 0.0 <= size_pct[1] <= 1.0, f"Pct must be between 0.0 and 1.0 (given: {size_pct})"
+        else:
+            assert 0.0 <= size_pct <= 1.0, f"Pct must be between 0.0 and 1.0 (given: {size_pct})"
         self.prob = prob
-        self.size_pct = size_pct
-        self.num = num
-        
-    def get_transform(self, img):
-        raise NotImplementedError
+        self.size_pct = size_pct if type(size_pct) is tuple else (size_pct, size_pct)
+        self.size_pct_scale = self.size_pct[1] - self.size_pct[0]
+        self.aspect = aspect if type(aspect) is tuple else (aspect, aspect)
+        self.aspect_scale = self.aspect[1] - self.aspect[0]
+        self.num = num if type(num) is tuple else (num, num)
+    
+    def _get_transform(self, h, w):
+        area = h * w
+        do = self._rand_range() < self.prob
+        if do:
+            num = np.random.randint(self.num[0], self.num[1]+1)
+            rects = []
+            for _ in range(num):
+                _size_pct = np.random.rand() * self.size_pct_scale + self.size_pct[0]
+                _area = area * _size_pct
+                _aspect = np.random.rand() * self.aspect_scale + self.aspect[0]
+                _h = int(np.sqrt(_area * _aspect))
+                _w = int(np.sqrt(_area / _aspect))
 
+                x0 = np.random.randint(0, w)
+                x1 = min(x0 + _w, w)
+                y0 = np.random.randint(0, h)
+                y1 = min(y0 + _h, h)
+                rects.append((x0, y0, x1, y1))
+            return CutoutTransform(rects)
+        else:
+            return NoOpTransform()
+
+    def get_transform(self, img):
+        h, w = img.shape[:2]
+        
