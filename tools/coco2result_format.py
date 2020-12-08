@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 import argparse
 from pathlib import Path
+import sys
 import json
 
 if __name__ == '__main__':
@@ -23,13 +24,15 @@ if __name__ == '__main__':
 
 	outdets = []
 	
-	for i, name in enumerate(tqdm(api.imgs)):
-		anns = api.getAnnIds([i])
+	for idx, name in api.imgs.items():
+		anns = api.getAnnIds([idx])
 		dets = api.loadAnns(anns)
 		for det in dets:
-			det['name'] = name
+			det['name'] = name['file_name']
 			det['category'] = api.cats[det['category_id']]['name']
 			outdets.append(det)
+		sys.stdout.write("\r%d" % idx)
+	print()
 
 	with outfile.open("w") as f:
 		f.write(json.dumps(outdets))
