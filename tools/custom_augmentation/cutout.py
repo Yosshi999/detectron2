@@ -116,7 +116,8 @@ class ObjectAwareCutout(Augmentation):
     """
     Region aware cutout.
     """
-    def __init__(self, prob=0.5, *, size_pct=(0.02, 0.2), aspect=(0.33, 3), num=1):
+    input_args = ("image", "boxes")
+    def __init__(self, prob=0.5, *, size_pct=(0.02, 0.05), aspect=(0.33, 3), num=(5, 10)):
         """
         Args:
             prob (float): probability between 0.0 and 1.0 that
@@ -139,7 +140,7 @@ class ObjectAwareCutout(Augmentation):
         self.aspect_scale = self.aspect[1] - self.aspect[0]
         self.num = num if type(num) is tuple else (num, num)
     
-    def _get_transform(self, h, w):
+    def _get_transform_rects(self, h, w, xoff, yoff, imgh, imgw):
         area = h * w
         do = self._rand_range() < self.prob
         if do:
@@ -152,15 +153,24 @@ class ObjectAwareCutout(Augmentation):
                 _h = int(np.sqrt(_area * _aspect))
                 _w = int(np.sqrt(_area / _aspect))
 
-                x0 = np.random.randint(0, w)
-                x1 = min(x0 + _w, w)
-                y0 = np.random.randint(0, h)
-                y1 = min(y0 + _h, h)
+                cx = np.random.randint(0, w) + xoff
+                cy = np.random.randint(0, h) + yoff
+                x0 = max(0,    cx - _w//2)
+                x1 = min(imgw, cx + _w//2)
+                y0 = max(0,    cy - _h//2)
+                y1 = min(imgh, cy + _h//2)
                 rects.append((x0, y0, x1, y1))
-            return CutoutTransform(rects)
+            return rects
         else:
-            return NoOpTransform()
+            return []
 
-    def get_transform(self, img):
+    def get_transform(self, img, boxes):
+        """boxes: XYXY_ABS instance boxes"""
         h, w = img.shape[:2]
-        
+        rects = []
+        for (x1, y1, x2, y2) in boxes:
+            rects.extend(self._get_transform_rects(y2-y1, x2-x1, x1, y1, h, w))
+        if len(rects) == 0:
+            return NoOpTransform()
+        else:
+            return CutoutTransform(rects)
