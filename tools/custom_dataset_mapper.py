@@ -6,8 +6,8 @@ from typing import List, Optional, Union
 import torch
 
 from detectron2.data import DatasetMapper
-from detection2.data import detection_utils as utils
-from detection2.data import transforms as T
+from detectron2.data import detection_utils as utils
+from detectron2.data import transforms as T
 from detectron2.structures import BoxMode
 
 class CustomDatasetMapper(DatasetMapper):
