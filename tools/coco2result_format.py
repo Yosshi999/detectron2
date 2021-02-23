@@ -33,6 +33,7 @@ if __name__ == '__main__':
 			outdets.append(det)
 		sys.stdout.write("\r%d" % idx)
 	print()
+        outdets.sort(key=lambda x: x['name'])
 
 	with outfile.open("w") as f:
 		f.write(json.dumps(outdets))
